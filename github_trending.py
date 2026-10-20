@@ -155,7 +155,7 @@ def format_section(
             description = f"\n   {description}"
         lines.append(
             f"{index}. [{repo}]({item['url']}) · {language} · "
-            f"⭐ {item['stars']} stars {period_label}{description}"
+            f"⭐ +star{item['stars']} {period_label}{description}"
         )
     return "\n\n".join(lines)
 
@@ -297,4 +297,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
