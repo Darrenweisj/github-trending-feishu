@@ -9,6 +9,7 @@
 - 每月 1 日在同一条消息里附上「This month」月榜。
 - 周一恰逢每月 1 日时，一条消息包含日榜、周榜和月榜。
 - 每个项目显示仓库链接、主要语言、周期新增星数、仓库总星数和简介。
+- 可选使用 DeepL API 将项目简介翻译为简体中文；未配置密钥或翻译服务暂时不可用时，仍会发送原文。
 - 周期新增星数使用 `+star数字` 格式，例如 `+star1,234`；旁边同时显示累计总星数，例如 `总星数 59,516`。
 - 提供 GitHub Actions 手动运行入口，方便首次配置和临时查看。
 
@@ -34,11 +35,11 @@ GitHub热榜 · 2026-10-20
 
 今日热榜
 1. owner/repo · Python · ⭐ +star1,234 today · 总星数 59,516
-   项目简介……
+   （启用翻译后显示这里的简体中文简介）
 
 本周热榜（仅周一出现）
 1. another/repo · Rust · ⭐ +star5,678 this week · 总星数 88,120
-   项目简介……
+   （未配置 DeepL 时显示 GitHub 原始简介）
 ```
 
 项目名称会链接到对应的 GitHub 仓库。若 GitHub 页面未提供周期新增或累计星数，消息对应位置会显示“未显示”。如果飞书卡片接近消息大小上限，脚本会逐步缩短简介；简介全部省略后仍超限时，本次运行会失败并在 Actions 日志中说明。
@@ -63,6 +64,18 @@ GitHub热榜 · 2026-10-20
 
 Webhook 是密钥。不要把真实地址写进脚本、README、Issue、截图或提交记录。GitHub Actions 通过 `FEISHU_WEBHOOK` 环境变量读取 Secret；代码和公开仓库文件不包含 Webhook 值。
 
+## 配置简介翻译（可选）
+
+项目使用 DeepL API 的免费接口把简介翻译为简体中文。**不配置这一项也能正常推送热榜**；未配置密钥或翻译失败时，消息会保留 GitHub 上的原始简介。
+
+1. 在 [DeepL for Developers](https://www.deepl.com/en/developers) 注册并创建免费的 **API Developer** 密钥。
+2. 复制生成的 API Key。密钥只用于 GitHub Actions 调用 DeepL，不要发到聊天、Issue 或代码文件里。
+3. 打开本仓库的 **Settings → Secrets and variables → Actions**，点击 **New repository secret**。
+4. 在 **Name** 填写 `DEEPL_API_KEY`，在 **Secret** 粘贴 DeepL API Key，然后保存。
+5. 下一次定时运行或手动运行时，简介就会尝试翻译为简体中文。
+
+DeepL 当前为 API Developer 免费方案提供总计 1,000,000 个字符的免费翻译额度；这是总额度，不是每月重置。方案和额度可能调整，请以 [DeepL API 方案说明](https://support.deepl.com/hc/en-us/articles/360021200939-DeepL-API-plans) 为准。脚本会对同一批次重复的简介只请求翻译一次，并且最多发送每条简介前 100 个原文字数，以控制额度消耗。
+
 ## 手动运行和查看日志
 
 手动运行适用于首次配置后立即检查，或希望马上获取一条热榜时：
@@ -80,6 +93,7 @@ Webhook 是密钥。不要把真实地址写进脚本、README、Issue、截图�
 |---|---|
 | 没有收到飞书消息 | 先在 Actions 中查看最近运行记录；确认仓库 Secret 名称准确为 `FEISHU_WEBHOOK`，再检查飞书机器人是否仍在目标群、机器人安全设置是否允许消息内容。 |
 | Actions 显示缺少 `FEISHU_WEBHOOK` | 在 **Settings → Secrets and variables → Actions** 新建或重新保存同名 Secret。GitHub 不会显示已保存的 Secret 内容，只能重新设置。 |
+| 简介仍是英文 | 确认 Actions Secret 名称是 `DEEPL_API_KEY`，不是变量或环境文件；查看运行日志是否提示密钥缺失、DeepL 请求失败或免费额度不足。即使翻译失败，脚本也会继续发送原简介。 |
 | 飞书拒绝消息 | 检查 Webhook 是否属于飞书自定义机器人、是否复制完整、机器人是否被停用，以及是否要求消息包含指定关键词。 |
 | 热榜抓取失败 | 打开该次 Actions 运行，查看 `Fetch and send GitHub Trending` 步骤日志；可能是网络暂时不可用或 GitHub 页面结构变化。 |
 | 日榜成功但周榜/月榜缺失 | 周榜只在北京时间周一生成，月榜只在每月 1 日生成；其他日期不会抓取这两个榜单。 |
@@ -104,11 +118,14 @@ docs/进度.md                  配置与变更记录
 
 ```powershell
 $env:FEISHU_WEBHOOK = "粘贴你的飞书机器人 Webhook"
+# 如果要启用 DeepL 翻译，再设置这一项；不设置时简介按原文发送。
+$env:DEEPL_API_KEY = "粘贴你的 DeepL API Key"
 python .\github_trending.py
 Remove-Item Env:FEISHU_WEBHOOK
+Remove-Item Env:DEEPL_API_KEY -ErrorAction SilentlyContinue
 ```
 
-请只在自己的电脑上输入真实 Webhook，不要将它保存进项目文件或提交到 GitHub。脚本运行后会将抓取结果直接发送到该机器人所在的飞书群。
+请只在自己的电脑上输入真实 Webhook 和 DeepL API Key，不要将它们保存进项目文件或提交到 GitHub。脚本运行后会将抓取结果直接发送到该机器人所在的飞书群。
 
 ## 运行成本
 
@@ -119,4 +136,6 @@ Remove-Item Env:FEISHU_WEBHOOK
 - 只展示 GitHub Trending 页面前 10 个项目，不保存历史榜单，也不计算自定义排名。
 - 榜单数据来自 GitHub Trending 页面；页面不可用或结构变化时，需要查看日志并可能更新解析逻辑。
 - GitHub Actions 定时任务可能延迟；仓库长期没有活动时，GitHub 也可能停用计划任务。若任务停止，可在 Actions 页面重新启用。
+- DeepL 翻译需要单独创建免费 API Key；密钥缺失、额度用完或服务暂不可用时，简介会回退为 GitHub 原文，其他榜单和飞书推送继续进行。
 - 单条飞书消息受机器人消息大小限制。脚本会先缩短简介以尽量保留完整榜单。
+
