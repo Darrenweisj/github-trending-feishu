@@ -1,9 +1,6 @@
 name: Daily GitHub Trending to Feishu
 
 on:
-  push:
-    branches:
-      - main
   schedule:
     - cron: "10 8 * * *"
       timezone: "Asia/Shanghai"
@@ -14,7 +11,6 @@ permissions:
 
 jobs:
   send-trending:
-    if: github.event_name != 'push' || contains(github.event.head_commit.message, '[run-once-feishu]')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -30,4 +26,3 @@ jobs:
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
         run: python github_trending.py
-
