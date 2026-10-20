@@ -25,6 +25,5 @@ jobs:
       - name: Fetch and send GitHub Trending
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-          DEEPL_API_KEY: ${{ secrets.DEEPL_API_KEY }}
         run: python github_trending.py
 
