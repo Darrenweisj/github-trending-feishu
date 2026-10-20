@@ -31,6 +31,7 @@ class TrendingParser(HTMLParser):
         self.card: dict[str, object] | None = None
         self.description_active = False
         self.language_active = False
+        self.total_stars_active = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = dict(attrs)
@@ -39,19 +40,26 @@ class TrendingParser(HTMLParser):
                 "text": [],
                 "description_parts": [],
                 "language_parts": [],
+                "total_stars_parts": [],
                 "repo": "",
                 "url": "",
                 "description": "",
                 "language": "",
+                "total_stars": "",
             }
+            self.description_active = False
+            self.language_active = False
+            self.total_stars_active = False
             return
 
         if self.card is None:
             return
 
-        if tag == "a" and not self.card["repo"]:
+        if tag == "a":
             href = attributes.get("href") or ""
-            if re.fullmatch(r"/[^/]+/[^/]+", href):
+            if re.fullmatch(r"/[^/]+/[^/]+/stargazers", href):
+                self.total_stars_active = True
+            elif not self.card["repo"] and re.fullmatch(r"/[^/]+/[^/]+", href):
                 self.card["repo"] = href.lstrip("/")
                 self.card["url"] = f"https://github.com{href}"
 
@@ -64,7 +72,13 @@ class TrendingParser(HTMLParser):
         if self.card is None:
             return
 
-        if tag == "p" and self.description_active:
+        if tag == "a" and self.total_stars_active:
+            raw_total = " ".join(self.card["total_stars_parts"])
+            total_match = re.search(r"[\d,]+", raw_total)
+            if total_match:
+                self.card["total_stars"] = total_match.group(0)
+            self.total_stars_active = False
+        elif tag == "p" and self.description_active:
             self.card["description"] = " ".join(self.card["description_parts"]).strip()
             self.description_active = False
         elif tag == "span" and self.language_active:
@@ -84,6 +98,8 @@ class TrendingParser(HTMLParser):
             self.card["description_parts"].append(data)
         if self.language_active:
             self.card["language_parts"].append(data)
+        if self.total_stars_active:
+            self.card["total_stars_parts"].append(data)
 
     def _finish_card(self) -> dict[str, str] | None:
         assert self.card is not None
@@ -99,6 +115,7 @@ class TrendingParser(HTMLParser):
         )
         stars = match.group(1) if match else "未显示"
         period = match.group(2).lower() if match else ""
+        total_stars = str(self.card["total_stars"]) or "未显示"
         description = re.sub(r"\s+", " ", str(self.card["description"])).strip()
         language = re.sub(r"\s+", " ", str(self.card["language"])).strip()
         return {
@@ -108,6 +125,7 @@ class TrendingParser(HTMLParser):
             "language": language or "未标注语言",
             "stars": stars,
             "period": period,
+            "total_stars": total_stars,
         }
 
 
@@ -155,7 +173,8 @@ def format_section(
             description = f"\n   {description}"
         lines.append(
             f"{index}. [{repo}]({item['url']}) · {language} · "
-            f"⭐ +star{item['stars']} {period_label}{description}"
+            f"⭐ +star{item['stars']} {period_label} · "
+            f"总星数 {item['total_stars']}{description}"
         )
     return "\n\n".join(lines)
 
