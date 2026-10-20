@@ -91,7 +91,9 @@ Webhook 是密钥。不要把真实地址写进脚本、README、Issue、截图�
 ```text
 .github/workflows/daily.yml   定时和手动运行配置
 github_trending.py            抓榜、生成飞书卡片并推送
+.gitignore                    本地临时文件忽略规则
 README.md                     项目说明
+docs/进度.md                  配置与变更记录
 ```
 
 `.gitignore` 用于忽略本地 Python 缓存等临时文件。运行工作流不需要额外依赖安装步骤，使用 GitHub Actions 提供的 Python 3.12。
