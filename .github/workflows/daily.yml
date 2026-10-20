@@ -1,9 +1,6 @@
 name: Daily GitHub Trending to Feishu
 
 on:
-  push:
-    branches:
-      - main
   schedule:
     - cron: "10 8 * * *"
       timezone: "Asia/Shanghai"
