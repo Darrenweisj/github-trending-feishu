@@ -15,7 +15,6 @@ from zoneinfo import ZoneInfo
 
 
 BASE_URL = "https://github.com/trending"
-DEEPL_TRANSLATE_URL = "https://api-free.deepl.com/v2/translate"
 TIMEOUT_SECONDS = 20
 TOP_COUNT = 10
 DESCRIPTION_LIMIT = 100
@@ -147,71 +146,6 @@ def fetch_trending(period: str) -> list[dict[str, str]]:
     if not parser.items:
         raise ValueError("页面中没有找到热榜项目")
     return parser.items[:TOP_COUNT]
-
-
-def translate_descriptions(
-    section_data: list[tuple[str, str, list[dict[str, str]]]],
-    api_key: str,
-) -> None:
-    if not api_key:
-        print("[WARN] 未配置 DEEPL_API_KEY，项目简介保留原文")
-        return
-
-    descriptions: dict[str, list[dict[str, str]]] = {}
-    for _, _, items in section_data:
-        for item in items:
-            source = item["description"][:DESCRIPTION_LIMIT]
-            if source and source != "暂无项目简介":
-                descriptions.setdefault(source, []).append(item)
-
-    if not descriptions:
-        print("[INFO] 没有需要翻译的项目简介")
-        return
-
-    request = Request(
-        DEEPL_TRANSLATE_URL,
-        data=json.dumps(
-            {"text": list(descriptions), "target_lang": "ZH"},
-            ensure_ascii=False,
-        ).encode("utf-8"),
-        headers={
-            "Authorization": f"DeepL-Auth-Key {api_key}",
-            "Content-Type": "application/json",
-            "User-Agent": "github-trending-feishu/1.0",
-        },
-        method="POST",
-    )
-    try:
-        with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except HTTPError as error:
-        print(f"[WARN] DeepL 翻译不可用（HTTP {error.code}），项目简介保留原文")
-        return
-    except (URLError, TimeoutError, OSError, json.JSONDecodeError):
-        print("[WARN] DeepL 翻译暂时失败，项目简介保留原文")
-        return
-
-    translations = result.get("translations") if isinstance(result, dict) else None
-    sources = list(descriptions)
-    if (
-        not isinstance(translations, list)
-        or len(translations) != len(sources)
-        or any(
-            not isinstance(entry, dict)
-            or not isinstance(entry.get("text"), str)
-            or not entry["text"].strip()
-            for entry in translations
-        )
-    ):
-        print("[WARN] DeepL 返回内容无法识别，项目简介保留原文")
-        return
-
-    translated_items = 0
-    for source, translation in zip(sources, translations):
-        for item in descriptions[source]:
-            item["description"] = translation["text"].strip()
-            translated_items += 1
-    print(f"[OK] 已将 {translated_items} 条项目简介翻译为简体中文")
 
 
 def escape_markdown(text: str) -> str:
@@ -358,11 +292,6 @@ def main() -> int:
             reason = "请求超时" if isinstance(error, TimeoutError) else "页面解析失败"
             failures.append(f"{title}：{reason}")
             print(f"[WARN] {title}获取失败：{reason}")
-
-    translate_descriptions(
-        section_data,
-        os.environ.get("DEEPL_API_KEY", "").strip(),
-    )
 
     try:
         card, description_limit = build_card(now, section_data, failures)
